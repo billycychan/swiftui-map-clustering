@@ -62,7 +62,47 @@ See the [complete Toronto map](Examples/Toronto/TorontoMap.swift).
 
 ## Device benchmarks
 
-Open `Examples/Toronto.xcodeproj`, choose the shared **DeviceBenchmarks** scheme, and select a physical iOS device for an approved benchmark run. The scheme uses Toronto as its test host, builds in Release, and enables `MAP_CLUSTERING_BENCHMARK` for the test process. Each algorithm has 50k and 100k fixtures. The dense DBSCAN methods add a compact hotspot and a separate noise point. Use the XCTest clock and memory metrics for the whole workload and the **Cold membership** and **Warm query** signposts to measure the phases separately.
+Open `Examples/Toronto.xcodeproj`, choose the shared **DeviceBenchmarks** scheme, and select a physical iOS device for an approved benchmark run. The scheme uses Toronto as its test host, builds in Release, and enables `MAP_CLUSTERING_BENCHMARK` for the test process. The matrix covers Supercluster, DBSCAN, and K-means (8 clusters) at 50,000 and 100,000 points each. Every case measures one cold membership calculation at zoom 13 and 25 warm viewport queries per XCTest iteration.
+
+### Benchmark scenarios
+
+| Scenario | Distribution |
+| --- | --- |
+| Sparse, even | Points spread across a 0.5° square |
+| Sparse, uneven | Same area with 80% of points concentrated in a hotspot one fifth as wide |
+| Dense, even | Points spread across a 0.01° square |
+| Dense, uneven | Same smaller area with 80% of points concentrated in a hotspot one fifth as wide |
+
+### Recorded results
+
+Averages of five XCTest measurements on an iPhone 17 running iOS 27.2.1, Release configuration. Each measurement includes dataset creation, one cold membership calculation at zoom 13, and 25 warm viewport queries.
+
+| Algorithm | Points | Scenario | Avg. time | Peak memory |
+| --- | ---: | --- | ---: | ---: |
+| Supercluster | 50,000 | Dense, even | 0.034 s | 242.0 MB |
+| Supercluster | 50,000 | Dense, uneven | 0.034 s | 242.0 MB |
+| Supercluster | 50,000 | Sparse, even | 0.193 s | 239.7 MB |
+| Supercluster | 50,000 | Sparse, uneven | 0.097 s | 230.9 MB |
+| Supercluster | 100,000 | Dense, even | 0.068 s | 213.0 MB |
+| Supercluster | 100,000 | Dense, uneven | 0.075 s | 213.1 MB |
+| Supercluster | 100,000 | Sparse, even | 0.356 s | 262.1 MB |
+| Supercluster | 100,000 | Sparse, uneven | 0.188 s | 254.0 MB |
+| DBSCAN | 50,000 | Dense, even | 0.248 s | 217.8 MB |
+| DBSCAN | 50,000 | Dense, uneven | 0.551 s | 203.8 MB |
+| DBSCAN | 50,000 | Sparse, even | 0.086 s | 201.4 MB |
+| DBSCAN | 50,000 | Sparse, uneven | 0.113 s | 201.6 MB |
+| DBSCAN | 100,000 | Dense, even | 0.709 s | 239.5 MB |
+| DBSCAN | 100,000 | Dense, uneven | 1.631 s | 218.3 MB |
+| DBSCAN | 100,000 | Sparse, even | 0.189 s | 213.7 MB |
+| DBSCAN | 100,000 | Sparse, uneven | 0.262 s | 214.1 MB |
+| K-means | 50,000 | Dense, even | 0.039 s | 210.9 MB |
+| K-means | 50,000 | Dense, uneven | 0.026 s | 211.0 MB |
+| K-means | 50,000 | Sparse, even | 0.039 s | 210.9 MB |
+| K-means | 50,000 | Sparse, uneven | 0.025 s | 210.9 MB |
+| K-means | 100,000 | Dense, even | 0.080 s | 211.2 MB |
+| K-means | 100,000 | Dense, uneven | 0.075 s | 211.2 MB |
+| K-means | 100,000 | Sparse, even | 0.078 s | 211.2 MB |
+| K-means | 100,000 | Sparse, uneven | 0.063 s | 211.2 MB |
 
 ## SDK check
 
