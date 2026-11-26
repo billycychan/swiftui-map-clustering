@@ -1,7 +1,9 @@
 /// A partition entry. Indices refer to the supplied dataset in input order.
 public struct ClusterGroup: Identifiable, Sendable {
     public let id: Int
-    public let members: [Int]
+    /// Indices into the original input collection.
+    public let memberIndices: [Int]
+    public var count: Int { memberIndices.count }
     public let coordinate: Coordinate
     public let northwest: Coordinate
     public let southeast: Coordinate
@@ -12,7 +14,7 @@ public struct ClusterGroup: Identifiable, Sendable {
     init(_ members: [Int], points: [ProjectedPoint], expansionZoom: Int? = nil) {
         self.expansionZoom = expansionZoom
         precondition(!members.isEmpty)
-        self.members = members
+        self.memberIndices = members
         var anchor = members[0]
         var x = 0.0, y = 0.0
         var west = 1.0, east = 0.0, north = 1.0, south = 0.0

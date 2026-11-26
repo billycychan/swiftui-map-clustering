@@ -25,38 +25,40 @@ Then add the product to your app target:
 )
 ```
 
-Import `MapClustering` in the file that defines your map. Keep a controller in SwiftUI state, pass it to clustered map content, attach the tracking modifier to the map, and provide your items:
+## Display clustered markers (unreleased)
+
+The following API is available in the development checkout. For version 0.0.1, use the [tagged example](https://github.com/billycychan/swiftui-map-clustering/tree/0.0.1/Examples/Toronto).
 
 ```swift
-@State private var controller = ClusterController<Place>(coordinate: \.coordinate)
-@State private var position = MapCameraPosition.automatic
+import MapClustering
+import MapKit
+import SwiftUI
 
-var body: some View {
-    Map(position: $position) {
-        ClusteredAnnotations(controller, position: $position) { place in
-            Marker(place.name, coordinate: place.coordinate)
-        } cluster: { group in
-            Text(group.members.count, format: .number)
+struct TorontoMap: View {
+    @State private var controller = ClusterController(items: TorontoScenario.downtown.makePlaces(), coordinate: \.coordinate)
+    @State private var position = MapCameraPosition.region(TorontoScenario.downtown.region)
+    @State private var selection: Place.ID?
+
+    var body: some View {
+        Map(position: $position, selection: $selection) {
+            ClusteredAnnotations(controller, position: $position) { place in
+                Marker(place.name, coordinate: place.coordinate)
+            }
         }
-    }
-    .mapClustering(controller)
-    .task {
-        controller.replaceItems(places)
+        .mapClustering(controller)
     }
 }
 ```
 
 Your item type must conform to `Identifiable` and provide a `CLLocationCoordinate2D` at the key path passed to the controller. The default algorithm is Supercluster. See [Getting started](Sources/MapClustering/MapClustering.docc/GettingStarted.md) for options and projection details.
 
-<!-- GIF placeholder: Toronto clusters expanding into member pins. -->
-
 ## Toronto example
 
 Open [Examples/Toronto.xcodeproj](Examples/Toronto.xcodeproj) in Xcode and select the shared **Toronto** scheme in the toolbar. Choose an iOS 17+ simulator or a Mac running macOS 14+ as the run destination.
 
-The map opens with 100 sample places and uses the package’s default algorithm, Supercluster. Tap or click a numbered cluster to zoom in. Zoom out to see nearby pins group again.
+Open **Clustering Debug** to choose a pin distribution, set the count up to 5,000, and tune the clustering algorithm live. The map starts with 100 downtown pins and uses Supercluster by default. Tap or click a numbered cluster to zoom in. Zoom out to see nearby pins group again.
 
-In [TorontoMap.swift](Examples/Toronto/TorontoMap.swift), create one `ClusterController`, pass it to both `ClusteredAnnotations` and `.mapClustering(...)`, and load the places with `replaceItems`. The two annotation closures define how individual markers and cluster badges look. See [Getting started](Sources/MapClustering/MapClustering.docc/GettingStarted.md) for package usage and projection limits.
+See the [complete Toronto map](Examples/Toronto/TorontoMap.swift).
 
 ## Device benchmarks
 

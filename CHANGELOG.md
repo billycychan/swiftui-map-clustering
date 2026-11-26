@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Redesigned clustering configuration, map setup, group inspection, and timing diagnostics.
+
 ## 0.0.1
 
 - Added the library targets and Toronto example project.

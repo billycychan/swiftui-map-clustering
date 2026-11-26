@@ -1,6 +1,5 @@
 import MapKit
 import Observation
-import OSLog
 import SwiftUI
 import MapClusteringCore
 
@@ -9,15 +8,20 @@ import MapClusteringCore
 public final class ClusterController<Item: Identifiable> {
     public var groups: [ClusterGroup] { presentation.groups }
     private(set) var presentation = ClusterPresentation()
-    public private(set) var visiblePins = 0
-    public private(set) var visibleBadges = 0
-    public private(set) var options: ClusteringOptions
+    @_spi(Diagnostics) public var displayedZoom: Int? { presentation.zoom }
+    @_spi(Diagnostics) public var displayedGroups: [ClusterGroup] { presentation.groups }
+
+    public private(set) var visiblePinCount = 0
+    public private(set) var visibleClusterCount = 0
+    public var configuration: ClusteringConfiguration {
+        didSet { if configuration != oldValue { reset() } }
+    }
     private(set) var items: [Item] = []
     private let coordinate: KeyPath<Item, CLLocationCoordinate2D>
-    private let sink: ClusterDataset.EventSink
-    typealias MembershipLoader = @Sendable (ClusterDataset, Int, ClusteringOptions) async throws -> [ClusterGroup]
-    @ObservationIgnored var loadMembership: MembershipLoader = { dataset, zoom, options in
-        try await dataset.groups(at: zoom, options: options)
+    private let onEvent: ClusterDataset.EventSink?
+    typealias MembershipLoader = @Sendable (ClusterDataset, Int, ClusteringConfiguration) async throws -> [ClusterGroup]
+    @ObservationIgnored var loadMembership: MembershipLoader = { dataset, zoom, configuration in
+        try await dataset.groups(atZoom: zoom, configuration: configuration)
     }
 
     // Await the captured request in deterministic scheduling tests.
@@ -38,30 +42,27 @@ public final class ClusterController<Item: Identifiable> {
     @ObservationIgnored private var width: Double = 0
     @ObservationIgnored var reduceMotion = false
 
-    public init(coordinate: KeyPath<Item, CLLocationCoordinate2D>, options: ClusteringOptions = .init(),
-                sink: ClusterDataset.EventSink? = nil) {
+    public init(items: [Item] = [], coordinate: KeyPath<Item, CLLocationCoordinate2D>, configuration: ClusteringConfiguration = .init(),
+                onEvent: ClusterDataset.EventSink? = nil) {
         self.coordinate = coordinate
-        self.options = options
-        let logger = Logger(subsystem: "MapClustering", category: "clustering")
-        self.sink = sink ?? { event in
-            logger.info("\(event.stage.rawValue) \(String(describing: event.algorithm)) zoom=\(event.zoom) inputs=\(event.inputs) outputs=\(event.outputs) elapsed=\(String(describing: event.elapsed)) cancelled=\(event.cancelled)")
-        }
-        dataset = ClusterDataset([])
+        self.configuration = configuration
+        self.onEvent = onEvent
+        self.items = items
+        dataset = Self.makeDataset(items, coordinate: coordinate, onEvent: onEvent)
     }
 
-    public func replaceItems(_ items: [Item]) {
+    private static func makeDataset(_ items: [Item], coordinate: KeyPath<Item, CLLocationCoordinate2D>,
+                                    onEvent: ClusterDataset.EventSink?) -> ClusterDataset {
         let coordinates = items.map { item in
             let c = item[keyPath: coordinate]
             return Coordinate(latitude: c.latitude, longitude: c.longitude)
         }
-        self.items = items
-        dataset = ClusterDataset(coordinates, sink: sink)
-        reset()
+        return ClusterDataset(coordinates: coordinates, onEvent: onEvent)
     }
 
-    public func configure(_ options: ClusteringOptions) {
-        guard options != self.options else { return }
-        self.options = options
+    public func replaceItems(with items: [Item]) {
+        self.items = items
+        dataset = Self.makeDataset(items, coordinate: coordinate, onEvent: onEvent)
         reset()
     }
 
@@ -71,8 +72,8 @@ public final class ClusterController<Item: Identifiable> {
         membership?.cancel()
         query?.cancel()
         presentation = ClusterPresentation(revision: revision)
-        visiblePins = 0
-        visibleBadges = 0
+        visiblePinCount = 0
+        visibleClusterCount = 0
         partition = nil
         level = nil
         refresh()
@@ -80,7 +81,7 @@ public final class ClusterController<Item: Identifiable> {
 
     func expansionWidth(for group: ClusterGroup) -> Double? {
         guard let zoom = group.expansionZoom, width > 0 else { return nil }
-        return MKMapRect.world.width * width / Double(max(1, options.extent)) / exp2(Double(zoom) + 0.15)
+        return MKMapRect.world.width * width / Double(max(1, configuration.tileExtent)) / exp2(Double(zoom) + 0.15)
     }
 
     func update(rect: MKMapRect) { self.rect = rect; refresh() }
@@ -90,7 +91,7 @@ public final class ClusterController<Item: Identifiable> {
         guard let rect, width > 0, rect.width > 0, rect.width.isFinite,
               rect.height.isFinite, rect.origin.x.isFinite, rect.origin.y.isFinite else { return }
         let world = MKMapRect.world.width
-        let zoom = log2(width / (rect.width / world) / Double(max(1, options.extent)))
+        let zoom = log2(width / (rect.width / world) / Double(max(1, configuration.tileExtent)))
         guard zoom.isFinite else { return }
         let next = Int(min(31, max(0, floor(zoom))))
         let hold = level.map { zoom >= Double($0) - 0.08 && zoom < Double($0 + 1) + 0.08 } ?? false
@@ -101,8 +102,8 @@ public final class ClusterController<Item: Identifiable> {
             let current = generation
             level = next
             partition = nil
-            membership = Task { [weak self, dataset, options, loadMembership] in
-                guard let output = try? await loadMembership(dataset, next, options),
+            membership = Task { [weak self, dataset, configuration, loadMembership] in
+                guard let output = try? await loadMembership(dataset, next, configuration),
                       let self, current == generation, !Task.isCancelled else { return }
                 partition = output
                 refresh()
@@ -115,13 +116,13 @@ public final class ClusterController<Item: Identifiable> {
         let request = viewportGeneration
         let current = generation
         let padded = rect.insetBy(dx: -rect.width * 0.2, dy: -rect.height * 0.2)
-        query = Task { [weak self, dataset, options] in
+        query = Task { [weak self, dataset, configuration] in
             @MainActor func visible(in r: MKMapRect, _ input: [ClusterGroup]) async throws -> [ClusterGroup] {
-                try await dataset.visible(input, x: r.minX/world..<r.maxX/world,
-                                          y: r.minY/world..<r.maxY/world, zoom: level, options: options)
+                try await dataset.visibleGroups(in: input, xRange: r.minX/world..<r.maxX/world,
+                                          yRange: r.minY/world..<r.maxY/world, zoom: level, configuration: configuration)
             }
             do {
-                let rendered = options.algorithm == .off ? partition : try await visible(in: padded, partition)
+                let rendered = configuration.algorithm == .off ? partition : try await visible(in: padded, partition)
                 let visible = try await visible(in: rect, rendered)
                 guard let self, request == viewportGeneration, current == generation, !Task.isCancelled else { return }
                 let animation: Animation? = if let previousZoom = presentation.zoom,
@@ -133,8 +134,8 @@ public final class ClusterController<Item: Identifiable> {
                 withAnimation(animation) {
                     presentation = ClusterPresentation(groups: rendered, revision: revision, zoom: level)
                 }
-                visiblePins = visible.count { $0.members.count == 1 }
-                visibleBadges = visible.count - visiblePins
+                visiblePinCount = visible.count { $0.count == 1 }
+                visibleClusterCount = visible.count - visiblePinCount
             } catch { return }
         }
     }

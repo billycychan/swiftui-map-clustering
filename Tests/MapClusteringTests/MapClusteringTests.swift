@@ -27,41 +27,39 @@ private actor Gate {
         let id: Int
         var coordinate: CLLocationCoordinate2D { .init(latitude: 43.65, longitude: -79.38) }
     }
-    var options = ClusteringOptions()
-    options.algorithm = .dbscan
-    let controller = ClusterController<Place>(coordinate: \.coordinate, options: options)
+    var configuration = ClusteringConfiguration(algorithm: .dbscan())
+    let controller = ClusterController<Place>(coordinate: \.coordinate, configuration: configuration)
     let gate = Gate()
     controller.loadMembership = { data, zoom, settings in
-        if settings.algorithm == .dbscan {
+        if settings.algorithm == .dbscan() {
             await gate.hold()
             // Deliberately finish successfully even though the request was cancelled.
             return []
         }
-        return try await data.groups(at: zoom, options: settings)
+        return try await data.groups(atZoom: zoom, configuration: settings)
     }
-    controller.replaceItems((0..<5000).map(Place.init))
+    controller.replaceItems(with: (0..<5000).map(Place.init))
     controller.update(width: 400)
     controller.update(rect: .world)
     await gate.waitForArrival()
     let stale = controller.membership
-    options.algorithm = .off
-    controller.configure(options)
-    controller.replaceItems((0..<100).map(Place.init))
+    configuration.algorithm = .off
+    controller.configuration = configuration
+    controller.replaceItems(with: (0..<100).map(Place.init))
     await controller.waitForPublication()
     await gate.open()
     await stale?.value
     #expect(controller.groups.count == 100)
-    #expect(controller.visiblePins == 100)
+    #expect(controller.visiblePinCount == 100)
 }
 
 @Test func clusterCameraKeepsMembersInFrame() async throws {
-    let dataset = ClusterDataset([
+    let dataset = ClusterDataset(coordinates: [
         .init(latitude: 43.65, longitude: -79.39),
         .init(latitude: 43.63, longitude: -79.37)
     ])
-    var options = ClusteringOptions()
-    options.algorithm = .kMeans(k: 1)
-    let groups = try await dataset.groups(at: 12, options: options)
+    let configuration = ClusteringConfiguration(algorithm: .kMeans(clusterCount: 1))
+    let groups = try await dataset.groups(atZoom: 12, configuration: configuration)
     let group = try #require(groups.first)
     let fitted = clusterCameraTarget(for: group, expansionWidth: nil)
     let croppedWidth = fitted.width * 0.5

@@ -17,7 +17,7 @@ struct ClusterButton<Badge: View>: View {
             }
         } label: { badge().frame(minWidth: 44, minHeight: 44) }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("\(group.members.count) places", bundle: .module))
+        .accessibilityLabel(Text("\(group.count) places", bundle: .module))
         .accessibilityHint("Zoom to these places")
     }
 }

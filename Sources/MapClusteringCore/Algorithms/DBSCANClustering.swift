@@ -1,6 +1,10 @@
 import Foundation
 
-struct DBSCANMembership {
+/// Groups points by density using radius queries against a spatial index.
+struct DBSCANClustering {
+    /// Returns groups of input indices. The minimum neighbor count includes the point itself.
+    /// Only core points expand a group, shared border points join the first group that
+    /// reaches them, and points left unassigned are returned as singletons.
     func groups(in tree: SpatialIndex, radius: Double, minimum: Int) throws -> [[Int]] {
         let points = tree.points
         var visited = Array(repeating: false, count: points.count)
@@ -16,7 +20,7 @@ struct DBSCANMembership {
                 assigned[id] = true
                 queue.append(id)
                 return true
-    }
+            }
         }
 
         for seed in points.indices where !visited[seed] {

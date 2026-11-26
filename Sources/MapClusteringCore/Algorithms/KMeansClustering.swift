@@ -1,8 +1,13 @@
 import Foundation
 
-struct KMeansMembership {
+/// Partitions projected points around a target number of centers.
+struct KMeansClustering {
     let k: Int
 
+    /// Seeds centers deterministically using squared-distance weighting, then alternates
+    /// nearest-center assignment and averaging until assignments stabilize or 50 passes
+    /// finish. Empty groups are omitted, so the result can contain fewer than `k` groups.
+    /// If `k` meets or exceeds the point count, each point is returned as a singleton.
     func groups(for points: [ProjectedPoint]) throws -> [[Int]] {
         guard !points.isEmpty, k < points.count else { return points.indices.map { [$0] } }
         var rng = SplitMix64()
@@ -46,7 +51,7 @@ struct KMeansMembership {
                 }
                 let count = Double(groups[i].count)
                 centers[i] = ProjectedPoint(x: x / count, y: y / count)
-    }
+            }
         }
         return groups.filter { !$0.isEmpty }
     }

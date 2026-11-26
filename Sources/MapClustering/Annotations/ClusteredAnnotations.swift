@@ -26,21 +26,22 @@ public struct ClusteredAnnotations<Item: Identifiable, Pin: MapContent, Badge: V
     public var body: some MapContent {
         let items = controller.items
         let presentation = controller.presentation
-        let algorithm = controller.options.algorithm
+        let algorithm = controller.configuration.algorithm
         let entries = presentation.groups.lazy.map { group in
             let id: MapAnnotationID
-            if group.members.count == 1 {
+            if group.count == 1 {
                 id = .pin(items[group.id].id)
             } else {
                 // A Supercluster node retains its creation level until it splits.
-                let zoom = algorithm == .dbscan ? presentation.zoom : group.expansionZoom
+                let zoom: Int?
+                if case .dbscan = algorithm { zoom = presentation.zoom } else { zoom = group.expansionZoom }
                 id = .cluster(revision: presentation.revision, zoom: zoom, anchor: group.id)
             }
             return (id: id, group: group)
         }
         ForEach(entries, id: \.id) { entry in
             let group = entry.group
-            if group.members.count == 1 {
+            if group.count == 1 {
                 pin(items[group.id]).tag(items[group.id].id)
             } else {
                 Annotation("", coordinate: group.coordinate.location) {
@@ -49,5 +50,13 @@ public struct ClusteredAnnotations<Item: Identifiable, Pin: MapContent, Badge: V
                 }
             }
         }
+    }
+}
+
+public extension ClusteredAnnotations where Badge == ClusterCountBadge {
+    /// Renders individual items and uses a numbered badge for each cluster.
+    init(_ controller: ClusterController<Item>, position: Binding<MapCameraPosition>,
+         @MapContentBuilder item: @escaping (Item) -> Pin) {
+        self.init(controller, position: position, item: item) { ClusterCountBadge(count: $0.count) }
     }
 }
