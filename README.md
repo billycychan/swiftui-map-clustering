@@ -4,13 +4,13 @@ A Swift 6 package for annotation clustering on SwiftUI’s native Map.
 
 ## Add the package
 
-In Xcode, choose **File > Add Package Dependencies** and enter this repository’s Git URL. Select version **0.0.1** and add the `MapClustering` product to your app target. The package supports iOS 17+, macOS 14+, and visionOS 1+.
+In Xcode, choose **File > Add Package Dependencies** and enter this repository’s Git URL. Select version **0.0.2** and add the `MapClustering` product to your app target. The package supports iOS 17+, macOS 14+, and visionOS 1+.
 
 Or add the dependency in your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/billycychan/swiftui-map-clustering", from: "0.0.1")
+    .package(url: "https://github.com/billycychan/swiftui-map-clustering", from: "0.0.2")
 ]
 ```
 
@@ -25,9 +25,9 @@ Then add the product to your app target:
 )
 ```
 
-## Display clustered markers (unreleased)
+## Display clustered markers
 
-The following API is available in the development checkout. For version 0.0.1, use the [tagged example](https://github.com/billycychan/swiftui-map-clustering/tree/0.0.1/Examples/Toronto).
+The following API is available starting in version 0.0.2.
 
 ```swift
 import MapClustering
