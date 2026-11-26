@@ -79,7 +79,7 @@ public actor ClusterDataset {
             for z in stride(from: options.upperZoom, through: level, by: -1) {
                 try Task.checkCancellation()
                 if let cached = hierarchy[z] { groups = cached; continue }
-                groups = try Membership.merge(groups, points: points, radius: radius(z), options: options, zoom: z)
+                groups = try SuperclusterMembership().merge(groups, points: points, radius: radius(z), options: options, zoom: z)
                 hierarchy[z] = groups
             }
             return groups
@@ -94,9 +94,9 @@ public actor ClusterDataset {
         switch options.algorithm {
         case .dbscan:
             if index == nil { index = try SpatialIndex(positions, leafSize: options.nodeSize) }
-            membership = try Membership.dbscan(index!, radius: radius(level), minimum: max(2, options.minPoints))
+            membership = try DBSCANMembership().groups(in: index!, radius: radius(level), minimum: max(2, options.minPoints))
         case .kMeans(let k):
-            membership = try Membership.kMeans(positions, k: k)
+            membership = try KMeansMembership(k: k).groups(for: positions)
         default: return base
         }
         var result: [ClusterGroup] = []

@@ -4,10 +4,11 @@ import SwiftUI
 
 struct TorontoMap: View {
     @State private var position = MapCameraPosition.region(Place.region)
+    @State private var selection: Place.ID?
     @State private var controller = ClusterController<Place>(coordinate: \.coordinate)
 
     var body: some View {
-        Map(position: $position) {
+        Map(position: $position, selection: $selection) {
             ClusteredAnnotations(controller, position: $position) { place in
                 Marker(place.name, coordinate: place.coordinate)
             } cluster: { group in

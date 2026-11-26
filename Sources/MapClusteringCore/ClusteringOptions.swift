@@ -1,8 +1,3 @@
-/// Membership strategy. Off mode returns every input point.
-public enum ClusteringAlgorithm: Hashable, Sendable {
-    case supercluster, dbscan, kMeans(k: Int), off
-}
-
 /// Membership and diagnostics settings. Radius is measured in logical tile pixels.
 public struct ClusteringOptions: Hashable, Sendable {
     public var algorithm: ClusteringAlgorithm = .supercluster
@@ -18,16 +13,4 @@ public struct ClusteringOptions: Hashable, Sendable {
 
     var upperZoom: Int { min(30, max(0, maxZoom)) }
     var lowerZoom: Int { min(upperZoom, max(0, minZoom)) }
-}
-
-/// Aggregated diagnostic. Contains no coordinates or identifiers.
-public struct ClusteringEvent: Sendable {
-    public enum Stage: String, Sendable { case projection, membership, query }
-    public let stage: Stage
-    public let algorithm: ClusteringAlgorithm
-    public let zoom: Int
-    public let inputs: Int
-    public let outputs: Int
-    public let elapsed: Duration
-    public let cancelled: Bool
 }

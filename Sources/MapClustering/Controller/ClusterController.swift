@@ -4,12 +4,6 @@ import OSLog
 import SwiftUI
 import MapClusteringCore
 
-struct ClusterPresentation {
-    var groups: [ClusterGroup] = []
-    var revision = 0
-    var zoom: Int?
-}
-
 /// Own one controller per Map. Replace its items when the caller's dataset changes.
 @MainActor @Observable
 public final class ClusterController<Item: Identifiable> {

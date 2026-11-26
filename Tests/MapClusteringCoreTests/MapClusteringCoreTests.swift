@@ -68,7 +68,7 @@ func emptyAndSingle(_ algorithm: ClusteringAlgorithm) async throws {
         ProjectedPoint(x: 0.65, y: 0.49)
     ]
     let tree = try SpatialIndex(points, leafSize: 2)
-    let groups = try Membership.dbscan(tree, radius: 0.1, minimum: 4)
+    let groups = try DBSCANMembership().groups(in: tree, radius: 0.1, minimum: 4)
     #expect(groups.map { $0.sorted() } == [[0, 1, 2, 3, 4], [5, 6, 7, 8]])
 }
 
