@@ -1,5 +1,9 @@
 # MapClustering
 
+[![Version 0.0.2](https://img.shields.io/badge/version-0.0.2-blue)](https://github.com/billycychan/swiftui-map-clustering/tags)
+[![Swift 6.0 or later](https://img.shields.io/badge/Swift-6.0%2B-orange?logo=swift)](#install)
+[![iOS 17+, macOS 14+, and visionOS 1+](https://img.shields.io/badge/platforms-iOS%2017%2B%20%7C%20macOS%2014%2B%20%7C%20visionOS%201%2B-blue)](#install)
+
 When you zoom out on a SwiftUI `Map`, nearby pins can overlap and become hard to tap. MapClustering groups them into numbered badges on your existing map. Tap a badge to zoom to its places, and use your own marker and badge views.
 
 **Supercluster → DBSCAN → K-means (`k = 12`)**. Each screenshot shows the same 500 synthetic places in downtown Toronto at the same zoom.
@@ -12,7 +16,17 @@ When you zoom out on a SwiftUI `Map`, nearby pins can overlap and become hard to
 
 [See the same map with clustering off](Documentation/Images/toronto-clustering-off.webp).
 
-[Install](#install) · [See the Swift example](#show-clustered-markers) · [Try the Toronto demo](#try-the-toronto-demo)
+[Install](#install) · [See the Swift example](#show-clustered-markers) · [Choose an algorithm](#choose-an-algorithm) · [Try the Toronto demo](#try-the-toronto-demo)
+
+## Choose an algorithm
+
+| Algorithm | How it groups pins | When to use it |
+| --- | --- | --- |
+| **Supercluster** (default) | Builds a hierarchy by merging nearby groups as you zoom out. Zoom in to split them into smaller groups and pins. | General purpose maps where users browse from a wide view down to individual places. |
+| **DBSCAN** | Connects neighborhoods that have enough nearby pins within a radius. Groups can follow irregular shapes, and isolated points stay as pins. | Maps where dense hotspots or corridors matter, such as reports along a street. |
+| **K-means** | Assigns pins to their nearest cluster center and moves the centers to better fit their groups. You choose a target group count. Membership stays the same within the configured zoom range. | Maps where you want a fixed target number of geographic groups for comparison. |
+
+See [Settings](#settings) for the options and Swift examples for each mode.
 
 ## Install
 
