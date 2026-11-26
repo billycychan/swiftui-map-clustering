@@ -1,46 +1,68 @@
 # MapClustering
 
-A Swift 6 package for annotation clustering on SwiftUI’s native Map.
+When you zoom out on a SwiftUI `Map`, nearby pins can overlap and become hard to tap. MapClustering groups them into numbered badges on your existing map. Tap a badge to zoom to its places, and use your own marker and badge views.
 
-## Add the package
+**Supercluster → DBSCAN → K-means (`k = 12`)**. Each screenshot shows the same 500 synthetic places in downtown Toronto at the same zoom.
 
-In Xcode, choose **File > Add Package Dependencies** and enter this repository’s Git URL. Select version **0.0.2** and add the `MapClustering` product to your app target. The package supports iOS 17+, macOS 14+, and visionOS 1+.
+<p align="center">
+  <a href="Documentation/Images/toronto-clustering-supercluster.webp"><img src="Documentation/Images/toronto-clustering-supercluster.webp" width="230" alt="Supercluster groups the downtown Toronto pins into five numbered badges."></a>
+  <a href="Documentation/Images/toronto-clustering-dbscan.webp"><img src="Documentation/Images/toronto-clustering-dbscan.webp" width="230" alt="DBSCAN groups the same pins into two badges of 305 and 195 places."></a>
+  <a href="Documentation/Images/toronto-clustering-k-means.webp"><img src="Documentation/Images/toronto-clustering-k-means.webp" width="230" alt="K-means with a target of 12 groups divides the two dense areas into smaller clusters."></a>
+</p>
 
-Or add the dependency in your `Package.swift`:
+[See the same map with clustering off](Documentation/Images/toronto-clustering-off.webp).
+
+[Install](#install) · [See the Swift example](#show-clustered-markers) · [Try the Toronto demo](#try-the-toronto-demo)
+
+## Install
+
+Requires Swift 6 and iOS 17+, macOS 14+, or visionOS 1+.
+
+In Xcode, choose **File > Add Package Dependencies** and enter `https://github.com/billycychan/swiftui-map-clustering`. Start at version **0.0.2** and add the **MapClustering** product to your app target. Also add **MapClusteringCore** if your app imports the settings or core types directly.
+
+In a Swift package, add the dependency and products in `Package.swift`:
 
 ```swift
-dependencies: [
-    .package(url: "https://github.com/billycychan/swiftui-map-clustering", from: "0.0.2")
-]
+// Add to the package dependencies.
+.package(url: "https://github.com/billycychan/swiftui-map-clustering", from: "0.0.2"),
+
+// Add to your app target's dependencies.
+.product(name: "MapClustering", package: "swiftui-map-clustering"),
+.product(name: "MapClusteringCore", package: "swiftui-map-clustering"),
 ```
 
-Then add the product to your app target:
+## Show clustered markers
 
-```swift
-.target(
-    name: "MyApp",
-    dependencies: [
-        .product(name: "MapClustering", package: "swiftui-map-clustering")
-    ]
-)
-```
-
-## Display clustered markers
-
-The following API is available starting in version 0.0.2.
+Define a place with a stable ID and a coordinate. Keep one controller in view state and pass it to the map content and modifier. This example starts over downtown Toronto with the default Supercluster algorithm and count badge.
 
 ```swift
 import MapClustering
 import MapKit
 import SwiftUI
 
-struct TorontoMap: View {
-    @State private var controller = ClusterController(items: TorontoScenario.downtown.makePlaces(), coordinate: \.coordinate)
-    @State private var position = MapCameraPosition.region(TorontoScenario.downtown.region)
-    @State private var selection: Place.ID?
+struct PlacesMap: View {
+    struct Place: Identifiable {
+        let id: Int
+        let name: String
+        let coordinate: CLLocationCoordinate2D
+    }
+
+    private static let samplePlaces = [
+        Place(id: 1, name: "Union Station",
+              coordinate: CLLocationCoordinate2D(latitude: 43.6453, longitude: -79.3806)),
+        Place(id: 2, name: "Scotiabank Arena",
+              coordinate: CLLocationCoordinate2D(latitude: 43.6435, longitude: -79.3791))
+    ]
+
+    @State private var controller = ClusterController(items: Self.samplePlaces, coordinate: \.coordinate)
+
+    @State private var position = MapCameraPosition.region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 43.6453, longitude: -79.3806),
+        span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+    ))
 
     var body: some View {
-        Map(position: $position, selection: $selection) {
+        Map(position: $position) {
             ClusteredAnnotations(controller, position: $position) { place in
                 Marker(place.name, coordinate: place.coordinate)
             }
@@ -50,60 +72,67 @@ struct TorontoMap: View {
 }
 ```
 
-Your item type must conform to `Identifiable` and provide a `CLLocationCoordinate2D` at the key path passed to the controller. The default algorithm is Supercluster. See [Getting started](Sources/MapClustering/MapClustering.docc/GettingStarted.md) for options and projection details.
+## Settings
 
-## Toronto example
+| Setting | Default | What it controls |
+| --- | --- | --- |
+| `algorithm` | `.supercluster()` | Grouping method. Also supports `.dbscan(…)`, `.kMeans(…)`, and `.off`. |
+| `radius` | `40` | Search radius in logical tile pixels for Supercluster and DBSCAN. |
+| `minimumPointCount` | `2` | Minimum point count for Supercluster and DBSCAN. DBSCAN includes the point itself in its neighborhood. |
+| `clusterCount` | Required for K-means | Target number of K-means groups. |
+| `minimumClusterSize` | `2` | K-means groups below this size appear as individual pins. |
+| `zoomRange` | `0...16` | Reuse the lowest level below the range and show individual pins above the range. Zoom bounds are clamped to `0...30`. |
+| `tileExtent` | `512` | Logical tile width used to scale the radius and calculate zoom. |
+| `spatialIndexLeafSize` | `64` | Maximum spatial index leaf size for Supercluster and DBSCAN. |
+| `frequency` | `.onEnd` | Update after camera movement ends. Use `.continuous` for updates during movement. |
+| `onEvent` | `nil` | Optional callback for aggregate timing and count diagnostics. |
 
-Open [Examples/Toronto.xcodeproj](Examples/Toronto.xcodeproj) in Xcode and select the shared **Toronto** scheme in the toolbar. Choose an iOS 17+ simulator or a Mac running macOS 14+ as the run destination.
+Import `MapClusteringCore` when configuring a controller. For example, call this function with the controller from your map:
 
-Open **Clustering Debug** to choose a pin distribution, set the count up to 5,000, and tune the clustering algorithm live. The map starts with 100 downtown pins and uses Supercluster by default. Tap or click a numbered cluster to zoom in. Zoom out to see nearby pins group again.
+```swift
+import MapClustering
+import MapClusteringCore
 
-See the [complete Toronto map](Examples/Toronto/TorontoMap.swift).
+@MainActor
+func configure<Item>(_ controller: ClusterController<Item>) {
+    controller.configuration = ClusteringConfiguration(
+        algorithm: .supercluster(radius: 60, minimumPointCount: 3),
+        zoomRange: 2...18,
+        tileExtent: 512,
+        spatialIndexLeafSize: 64
+    )
 
-## Device benchmarks
+    // Set one of these to switch modes while keeping the current camera.
+    // controller.configuration.algorithm = .dbscan(radius: 60, minimumPointCount: 4)
+    // controller.configuration.algorithm = .kMeans(clusterCount: 8, minimumClusterSize: 3)
+    // controller.configuration.algorithm = .off
+}
+```
 
-Open `Examples/Toronto.xcodeproj`, choose the shared **DeviceBenchmarks** scheme, and select a physical iOS device for an approved benchmark run. The scheme uses Toronto as its test host, builds in Release, and enables `MAP_CLUSTERING_BENCHMARK` for the test process. The matrix covers Supercluster, DBSCAN, and K-means (8 clusters) at 50,000 and 100,000 points each. Every case measures one cold membership calculation at zoom 13 and 25 warm viewport queries per XCTest iteration.
+For updates while panning or zooming, use `.mapClustering(controller, frequency: .continuous)` on the map. To send diagnostics to unified logging, add the following extension and initialize the map's controller with `Self.makeLoggingController(items: Self.samplePlaces)`.
 
-### Benchmark scenarios
+```swift
+import MapClustering
+import OSLog
 
-| Scenario | Distribution |
-| --- | --- |
-| Sparse, even | Points spread across a 0.5° square |
-| Sparse, uneven | Same area with 80% of points concentrated in a hotspot one fifth as wide |
-| Dense, even | Points spread across a 0.01° square |
-| Dense, uneven | Same smaller area with 80% of points concentrated in a hotspot one fifth as wide |
+extension PlacesMap {
+    @MainActor
+    static func makeLoggingController(items: [Place]) -> ClusterController<Place> {
+        let logger = Logger(subsystem: "Places", category: "Clustering")
+        return ClusterController(items: items, coordinate: \.coordinate, onEvent: { event in
+            logger.info("\(event.stage.rawValue, privacy: .public) took \(String(describing: event.elapsed), privacy: .public)")
+        })
+    }
+}
+```
 
-### Recorded results
+## Try the Toronto demo
 
-Averages of five XCTest measurements on an iPhone 17 running iOS 27.2.1, Release configuration. Each measurement includes dataset creation, one cold membership calculation at zoom 13, and 25 warm viewport queries.
+Open [Examples/Toronto.xcodeproj](Examples/Toronto.xcodeproj), select the shared **Toronto** scheme, and run on iOS or macOS. The map starts with 100 downtown pins. Open **Clustering Debug** to compare algorithms and distributions, adjust settings, and display up to 5,000 pins. Tap or click a cluster to zoom in.
 
-| Algorithm | Points | Scenario | Avg. time | Peak memory |
-| --- | ---: | --- | ---: | ---: |
-| Supercluster | 50,000 | Dense, even | 0.034 s | 242.0 MB |
-| Supercluster | 50,000 | Dense, uneven | 0.034 s | 242.0 MB |
-| Supercluster | 50,000 | Sparse, even | 0.193 s | 239.7 MB |
-| Supercluster | 50,000 | Sparse, uneven | 0.097 s | 230.9 MB |
-| Supercluster | 100,000 | Dense, even | 0.068 s | 213.0 MB |
-| Supercluster | 100,000 | Dense, uneven | 0.075 s | 213.1 MB |
-| Supercluster | 100,000 | Sparse, even | 0.356 s | 262.1 MB |
-| Supercluster | 100,000 | Sparse, uneven | 0.188 s | 254.0 MB |
-| DBSCAN | 50,000 | Dense, even | 0.248 s | 217.8 MB |
-| DBSCAN | 50,000 | Dense, uneven | 0.551 s | 203.8 MB |
-| DBSCAN | 50,000 | Sparse, even | 0.086 s | 201.4 MB |
-| DBSCAN | 50,000 | Sparse, uneven | 0.113 s | 201.6 MB |
-| DBSCAN | 100,000 | Dense, even | 0.709 s | 239.5 MB |
-| DBSCAN | 100,000 | Dense, uneven | 1.631 s | 218.3 MB |
-| DBSCAN | 100,000 | Sparse, even | 0.189 s | 213.7 MB |
-| DBSCAN | 100,000 | Sparse, uneven | 0.262 s | 214.1 MB |
-| K-means | 50,000 | Dense, even | 0.039 s | 210.9 MB |
-| K-means | 50,000 | Dense, uneven | 0.026 s | 211.0 MB |
-| K-means | 50,000 | Sparse, even | 0.039 s | 210.9 MB |
-| K-means | 50,000 | Sparse, uneven | 0.025 s | 210.9 MB |
-| K-means | 100,000 | Dense, even | 0.080 s | 211.2 MB |
-| K-means | 100,000 | Dense, uneven | 0.075 s | 211.2 MB |
-| K-means | 100,000 | Sparse, even | 0.078 s | 211.2 MB |
-| K-means | 100,000 | Sparse, uneven | 0.063 s | 211.2 MB |
+## Read more
 
-## SDK check
-
-Xcode 27.2 (27B48), iPhoneOS SDK 27.2. Checked xcodebuild -version and xcrun --sdk iphoneos --show-sdk-version, then searched the public arm64e Swift interface of _MapKit_SwiftUI for “cluster”. The interface exposes MapContent and onMapCameraChange and contains no clustering declaration.
+- [Integration guide](Documentation/Usage.md) for changing data, selection, custom badges, and camera behavior
+- [Device benchmarks](Documentation/Benchmarks.md) for setup, datasets, and recorded timings
+- [SwiftUI Map SDK check](Documentation/SDK-Compatibility.md) for the original SDK inspection
+- [Changelog](CHANGELOG.md) and [MIT license](LICENSE)
