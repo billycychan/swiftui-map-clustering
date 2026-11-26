@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.1
 
 - Added the library targets and Toronto example project.
 - Added shared-controller clustering with Supercluster, DBSCAN, experimental k-means, and off mode.
