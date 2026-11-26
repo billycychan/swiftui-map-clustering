@@ -10,11 +10,20 @@ Or add the dependency in your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "<repository Git URL>", from: "0.0.1")
+    .package(url: "https://github.com/billycychan/swiftui-map-clustering", from: "0.0.1")
 ]
 ```
 
-Then add `.product(name: "MapClustering", package: "swiftui-map-clustering")` to your target’s dependencies. Replace the package name with the repository’s Swift package identity if it differs.
+Then add the product to your app target:
+
+```swift
+.target(
+    name: "MyApp",
+    dependencies: [
+        .product(name: "MapClustering", package: "swiftui-map-clustering")
+    ]
+)
+```
 
 Import `MapClustering` in the file that defines your map. Keep a controller in SwiftUI state, pass it to clustered map content, attach the tracking modifier to the map, and provide your items:
 
